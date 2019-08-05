@@ -2,9 +2,9 @@ FROM martenseemann/quic-network-simulator-endpoint:latest AS builder
 
 RUN apt-get update && apt-get install -y wget tar git
 
-RUN wget https://dl.google.com/go/go1.14.linux-amd64.tar.gz && \
-  tar xfz go1.14.linux-amd64.tar.gz && \
-  rm go1.14.linux-amd64.tar.gz
+RUN wget https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz && \
+  tar xfz go1.14.4.linux-amd64.tar.gz && \
+  rm go1.14.4.linux-amd64.tar.gz
 
 ENV PATH="/go/bin:${PATH}"
 
@@ -13,7 +13,7 @@ ARG CACHEBUST=1
 
 RUN git clone https://github.com/lucas-clemente/quic-go && \
   cd quic-go && \
-  git fetch origin interop && git checkout -t origin/interop && \
+  git fetch origin interop-debug && git checkout -t origin/interop-debug && \
   go get ./...
 
 WORKDIR /quic-go
