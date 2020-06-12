@@ -14,6 +14,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/lucas-clemente/quic-go/internal/protocol"
+
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/internal/utils"
 	"github.com/marten-seemann/qpack"
@@ -136,6 +138,11 @@ func (s *Server) serveImpl(tlsConf *tls.Config, conn net.PacketConn) error {
 			return conf, nil
 		}
 	}
+
+	if s.QuicConfig == nil {
+		s.QuicConfig = &quic.Config{}
+	}
+	s.QuicConfig.Versions = []protocol.VersionNumber{protocol.VersionDraft29}
 
 	var ln quic.EarlyListener
 	var err error
