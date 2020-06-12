@@ -74,7 +74,7 @@ func newClient(
 		quicConfig = defaultQuicConfig
 	}
 	quicConfig.MaxIncomingStreams = -1 // don't allow any bidirectional streams
-	quicConfig.Versions = []protocol.VersionNumber{protocol.VersionDraft29}
+	quicConfig.Versions = []protocol.VersionNumber{protocol.VersionDraft28}
 	logger := utils.DefaultLogger.WithPrefix("h3 client")
 
 	return &client{

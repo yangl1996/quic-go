@@ -47,7 +47,7 @@ func (r *RoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if r.QuicConfig == nil {
 		r.QuicConfig = &quic.Config{}
 	}
-	r.QuicConfig.Versions = []protocol.VersionNumber{protocol.VersionDraft29}
+	r.QuicConfig.Versions = []protocol.VersionNumber{protocol.VersionDraft28}
 
 	hostname := authorityAddr("https", hostnameFromRequest(req))
 	if r.clients == nil {

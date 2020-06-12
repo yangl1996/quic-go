@@ -18,7 +18,7 @@ import (
 	"github.com/lucas-clemente/quic-go"
 )
 
-const h09alpn = "hq-29"
+const h09alpn = "hq-28"
 
 type responseWriter struct {
 	io.Writer
@@ -75,7 +75,7 @@ func (s *Server) ListenAndServe() error {
 	if s.QuicConfig == nil {
 		s.QuicConfig = &quic.Config{}
 	}
-	s.QuicConfig.Versions = []protocol.VersionNumber{protocol.VersionDraft29}
+	s.QuicConfig.Versions = []protocol.VersionNumber{protocol.VersionDraft28}
 
 	ln, err := quic.ListenEarly(conn, tlsConf, s.QuicConfig)
 	if err != nil {

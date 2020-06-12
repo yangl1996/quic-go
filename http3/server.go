@@ -27,7 +27,7 @@ var (
 	quicListenAddr = quic.ListenAddrEarly
 )
 
-const nextProtoH3 = "h3-29"
+const nextProtoH3 = "h3-28"
 
 // contextKey is a value for use with context.WithValue. It's used as
 // a pointer so it fits in an interface{} without allocation.
@@ -142,7 +142,7 @@ func (s *Server) serveImpl(tlsConf *tls.Config, conn net.PacketConn) error {
 	if s.QuicConfig == nil {
 		s.QuicConfig = &quic.Config{}
 	}
-	s.QuicConfig.Versions = []protocol.VersionNumber{protocol.VersionDraft29}
+	s.QuicConfig.Versions = []protocol.VersionNumber{protocol.VersionDraft28}
 
 	var ln quic.EarlyListener
 	var err error
