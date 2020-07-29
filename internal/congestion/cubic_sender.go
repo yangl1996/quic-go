@@ -67,11 +67,11 @@ var _ SendAlgorithm = &cubicSender{}
 var _ SendAlgorithmWithDebugInfos = &cubicSender{}
 
 // NewCubicSender makes a new cubic sender
-func NewCubicSender(clock Clock, rttStats *utils.RTTStats, reno bool, tracer logging.ConnectionTracer) *cubicSender {
-	return newCubicSender(clock, rttStats, reno, initialCongestionWindow, maxCongestionWindow, tracer)
+func NewCubicSender(clock Clock, nConn int, rttStats *utils.RTTStats, reno bool, tracer logging.ConnectionTracer) *cubicSender {
+	return newCubicSender(clock, nConn, rttStats, reno, initialCongestionWindow, maxCongestionWindow, tracer)
 }
 
-func newCubicSender(clock Clock, rttStats *utils.RTTStats, reno bool, initialCongestionWindow, initialMaxCongestionWindow protocol.ByteCount, tracer logging.ConnectionTracer) *cubicSender {
+func newCubicSender(clock Clock, nConn int, rttStats *utils.RTTStats, reno bool, initialCongestionWindow, initialMaxCongestionWindow protocol.ByteCount, tracer logging.ConnectionTracer) *cubicSender {
 	c := &cubicSender{
 		rttStats:                   rttStats,
 		largestSentPacketNumber:    protocol.InvalidPacketNumber,
@@ -83,7 +83,7 @@ func newCubicSender(clock Clock, rttStats *utils.RTTStats, reno bool, initialCon
 		minCongestionWindow:        minCongestionWindow,
 		slowStartThreshold:         initialMaxCongestionWindow,
 		maxCongestionWindow:        initialMaxCongestionWindow,
-		cubic:                      NewCubic(clock),
+		cubic:                      NewCubic(clock, nConn),
 		clock:                      clock,
 		reno:                       reno,
 		tracer:                     tracer,

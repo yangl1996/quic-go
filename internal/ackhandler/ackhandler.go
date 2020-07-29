@@ -9,6 +9,7 @@ import (
 
 // NewAckHandler creates a new SentPacketHandler and a new ReceivedPacketHandler
 func NewAckHandler(
+	nConn int,
 	initialPacketNumber protocol.PacketNumber,
 	rttStats *utils.RTTStats,
 	pers protocol.Perspective,
@@ -17,6 +18,6 @@ func NewAckHandler(
 	logger utils.Logger,
 	version protocol.VersionNumber,
 ) (SentPacketHandler, ReceivedPacketHandler) {
-	sph := newSentPacketHandler(initialPacketNumber, rttStats, pers, traceCallback, tracer, logger)
+	sph := newSentPacketHandler(nConn, initialPacketNumber, rttStats, pers, traceCallback, tracer, logger)
 	return sph, newReceivedPacketHandler(sph, rttStats, logger, version)
 }

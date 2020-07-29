@@ -268,6 +268,7 @@ var newSession = func(
 	)
 	s.preSetup()
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
+		1,	// TODO: we are not configuring the number of connections if it is incoming
 		0,
 		s.rttStats,
 		s.perspective,
@@ -342,6 +343,7 @@ var newSession = func(
 
 // declare this as a variable, such that we can it mock it in the tests
 var newClientSession = func(
+	nConn int,
 	conn connection,
 	runner sessionRunner,
 	destConnID protocol.ConnectionID,
@@ -390,6 +392,7 @@ var newClientSession = func(
 	)
 	s.preSetup()
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
+		nConn,
 		initialPacketNumber,
 		s.rttStats,
 		s.perspective,

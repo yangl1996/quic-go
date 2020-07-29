@@ -92,6 +92,7 @@ var _ SentPacketHandler = &sentPacketHandler{}
 var _ sentPacketTracker = &sentPacketHandler{}
 
 func newSentPacketHandler(
+	nConn int,
 	initialPacketNumber protocol.PacketNumber,
 	rttStats *utils.RTTStats,
 	pers protocol.Perspective,
@@ -101,6 +102,7 @@ func newSentPacketHandler(
 ) *sentPacketHandler {
 	congestion := congestion.NewCubicSender(
 		congestion.DefaultClock{},
+		nConn,
 		rttStats,
 		true, // use Reno
 		tracer,

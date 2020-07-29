@@ -63,10 +63,10 @@ type Cubic struct {
 }
 
 // NewCubic returns a new Cubic instance
-func NewCubic(clock Clock) *Cubic {
+func NewCubic(clock Clock, nConn int) *Cubic {
 	c := &Cubic{
 		clock:          clock,
-		numConnections: defaultNumConnections,
+		numConnections: nConn,
 	}
 	c.Reset()
 	return c

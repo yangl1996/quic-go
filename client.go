@@ -55,11 +55,12 @@ var (
 // The hostname for SNI is taken from the given address.
 // The tls.Config.CipherSuites allows setting of TLS 1.3 cipher suites.
 func DialAddr(
+	nConn int,
 	addr string,
 	tlsConf *tls.Config,
 	config *Config,
 ) (Session, error) {
-	return DialAddrContext(context.Background(), addr, tlsConf, config)
+	return DialAddrContext(context.Background(), nConn, addr, tlsConf, config)
 }
 
 // DialAddrEarly establishes a new 0-RTT QUIC connection to a server.
@@ -67,11 +68,12 @@ func DialAddr(
 // The hostname for SNI is taken from the given address.
 // The tls.Config.CipherSuites allows setting of TLS 1.3 cipher suites.
 func DialAddrEarly(
+	nConn int,
 	addr string,
 	tlsConf *tls.Config,
 	config *Config,
 ) (EarlySession, error) {
-	sess, err := dialAddrContext(context.Background(), addr, tlsConf, config, true)
+	sess, err := dialAddrContext(context.Background(), nConn, addr, tlsConf, config, true)
 	if err != nil {
 		return nil, err
 	}
@@ -83,15 +85,17 @@ func DialAddrEarly(
 // See DialAddr for details.
 func DialAddrContext(
 	ctx context.Context,
+	nConn int,
 	addr string,
 	tlsConf *tls.Config,
 	config *Config,
 ) (Session, error) {
-	return dialAddrContext(ctx, addr, tlsConf, config, false)
+	return dialAddrContext(ctx, nConn, addr, tlsConf, config, false)
 }
 
 func dialAddrContext(
 	ctx context.Context,
+	nConn int,
 	addr string,
 	tlsConf *tls.Config,
 	config *Config,
@@ -105,7 +109,7 @@ func dialAddrContext(
 	if err != nil {
 		return nil, err
 	}
-	return dialContext(ctx, udpConn, udpAddr, addr, tlsConf, config, use0RTT, true)
+	return dialContext(ctx, nConn, udpConn, udpAddr, addr, tlsConf, config, use0RTT, true)
 }
 
 // Dial establishes a new QUIC connection to a server using a net.PacketConn.
@@ -114,13 +118,14 @@ func dialAddrContext(
 // The host parameter is used for SNI.
 // The tls.Config must define an application protocol (using NextProtos).
 func Dial(
+	nConn int,
 	pconn net.PacketConn,
 	remoteAddr net.Addr,
 	host string,
 	tlsConf *tls.Config,
 	config *Config,
 ) (Session, error) {
-	return dialContext(context.Background(), pconn, remoteAddr, host, tlsConf, config, false, false)
+	return dialContext(context.Background(), nConn, pconn, remoteAddr, host, tlsConf, config, false, false)
 }
 
 // DialEarly establishes a new 0-RTT QUIC connection to a server using a net.PacketConn.
@@ -129,30 +134,33 @@ func Dial(
 // The host parameter is used for SNI.
 // The tls.Config must define an application protocol (using NextProtos).
 func DialEarly(
+	nConn int,
 	pconn net.PacketConn,
 	remoteAddr net.Addr,
 	host string,
 	tlsConf *tls.Config,
 	config *Config,
 ) (EarlySession, error) {
-	return dialContext(context.Background(), pconn, remoteAddr, host, tlsConf, config, true, false)
+	return dialContext(context.Background(), nConn, pconn, remoteAddr, host, tlsConf, config, true, false)
 }
 
 // DialContext establishes a new QUIC connection to a server using a net.PacketConn using the provided context.
 // See Dial for details.
 func DialContext(
 	ctx context.Context,
+	nConn int,
 	pconn net.PacketConn,
 	remoteAddr net.Addr,
 	host string,
 	tlsConf *tls.Config,
 	config *Config,
 ) (Session, error) {
-	return dialContext(ctx, pconn, remoteAddr, host, tlsConf, config, false, false)
+	return dialContext(ctx, nConn, pconn, remoteAddr, host, tlsConf, config, false, false)
 }
 
 func dialContext(
 	ctx context.Context,
+	nConn int,
 	pconn net.PacketConn,
 	remoteAddr net.Addr,
 	host string,
@@ -178,7 +186,7 @@ func dialContext(
 	if c.config.Tracer != nil {
 		c.tracer = c.config.Tracer.TracerForConnection(protocol.PerspectiveClient, c.destConnID)
 	}
-	if err := c.dial(ctx); err != nil {
+	if err := c.dial(ctx, nConn); err != nil {
 		return nil, err
 	}
 	return c.session, nil
@@ -241,7 +249,7 @@ func newClient(
 	return c, nil
 }
 
-func (c *client) dial(ctx context.Context) error {
+func (c *client) dial(ctx context.Context, nConn int) error {
 	c.logger.Infof("Starting new connection to %s (%s -> %s), source connection ID %s, destination connection ID %s, version %s", c.tlsConf.ServerName, c.conn.LocalAddr(), c.conn.RemoteAddr(), c.srcConnID, c.destConnID, c.version)
 	if c.tracer != nil {
 		c.tracer.StartedConnection(c.conn.LocalAddr(), c.conn.RemoteAddr(), c.version, c.srcConnID, c.destConnID)
@@ -249,6 +257,7 @@ func (c *client) dial(ctx context.Context) error {
 
 	c.mutex.Lock()
 	c.session = newClientSession(
+		nConn,
 		c.conn,
 		c.packetHandlers,
 		c.destConnID,
@@ -292,7 +301,7 @@ func (c *client) dial(ctx context.Context) error {
 			c.initialPacketNumber = recreateErr.nextPacketNumber
 			c.version = recreateErr.nextVersion
 			c.hasNegotiatedVersion = true
-			return c.dial(ctx)
+			return c.dial(ctx, nConn)
 		}
 		return err
 	case <-earlySessionChan:
