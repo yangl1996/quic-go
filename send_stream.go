@@ -22,6 +22,7 @@ type sendStreamI interface {
 	closeForShutdown(error)
 	handleMaxStreamDataFrame(*wire.MaxStreamDataFrame)
 	weight() int
+	SetWeight(int)
 }
 
 type sendStream struct {
@@ -85,6 +86,13 @@ func (s *sendStream) weight() int {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.rrWeight
+}
+
+func (s *sendStream) SetWeight(nw int) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.rrWeight = nw
+	return
 }
 
 func (s *sendStream) StreamID() protocol.StreamID {
