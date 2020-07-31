@@ -52,6 +52,7 @@ type streamI interface {
 	handleStopSendingFrame(*wire.StopSendingFrame)
 	popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool)
 	handleMaxStreamDataFrame(*wire.MaxStreamDataFrame)
+	weight() int
 }
 
 var _ receiveStreamI = (streamI)(nil)

@@ -21,6 +21,7 @@ type sendStreamI interface {
 	popStreamFrame(maxBytes protocol.ByteCount) (*ackhandler.Frame, bool)
 	closeForShutdown(error)
 	handleMaxStreamDataFrame(*wire.MaxStreamDataFrame)
+	weight() int
 }
 
 type sendStream struct {
@@ -55,6 +56,8 @@ type sendStream struct {
 	flowController flowcontrol.StreamFlowController
 
 	version protocol.VersionNumber
+
+	rrWeight int
 }
 
 var _ SendStream = &sendStream{}
@@ -72,9 +75,16 @@ func newSendStream(
 		flowController: flowController,
 		writeChan:      make(chan struct{}, 1),
 		version:        version,
+		rrWeight: 255,
 	}
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 	return s
+}
+
+func (s *sendStream) weight() int {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.rrWeight
 }
 
 func (s *sendStream) StreamID() protocol.StreamID {

@@ -19,6 +19,8 @@ type framer interface {
 	AppendStreamFrames([]ackhandler.Frame, protocol.ByteCount) ([]ackhandler.Frame, protocol.ByteCount)
 }
 
+const MaxWeight int = 255
+
 type framerI struct {
 	mutex sync.Mutex
 
@@ -30,6 +32,8 @@ type framerI struct {
 
 	controlFrameMutex sync.Mutex
 	controlFrames     []wire.Frame
+
+	rrWeight int
 }
 
 var _ framer = &framerI{}
@@ -110,26 +114,31 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 			delete(f.activeStreams, id)
 			continue
 		}
-		remainingLen := maxLen - length
-		// For the last STREAM frame, we'll remove the DataLen field later.
-		// Therefore, we can pretend to have more bytes available when popping
-		// the STREAM frame (which will always have the DataLen set).
-		remainingLen += utils.VarIntLen(uint64(remainingLen))
-		frame, hasMoreData := str.popStreamFrame(remainingLen)
-		if hasMoreData { // put the stream back in the queue (at the end)
+		if str.weight() > f.rrWeight {
+			remainingLen := maxLen - length
+			// For the last STREAM frame, we'll remove the DataLen field later.
+			// Therefore, we can pretend to have more bytes available when popping
+			// the STREAM frame (which will always have the DataLen set).
+			remainingLen += utils.VarIntLen(uint64(remainingLen))
+			frame, hasMoreData := str.popStreamFrame(remainingLen)
+			if hasMoreData { // put the stream back in the queue (at the end)
+				f.streamQueue = append(f.streamQueue, id)
+			} else { // no more data to send. Stream is not active any more
+				delete(f.activeStreams, id)
+			}
+			// The frame can be nil
+			// * if the receiveStream was canceled after it said it had data
+			// * the remaining size doesn't allow us to add another STREAM frame
+			if frame == nil {
+				continue
+			}
+			frames = append(frames, *frame)
+			length += frame.Length(f.version)
+			lastFrame = frame
+		} else {
+			// if the stream does not meet the weight threshold, just queue it back
 			f.streamQueue = append(f.streamQueue, id)
-		} else { // no more data to send. Stream is not active any more
-			delete(f.activeStreams, id)
 		}
-		// The frame can be nil
-		// * if the receiveStream was canceled after it said it had data
-		// * the remaining size doesn't allow us to add another STREAM frame
-		if frame == nil {
-			continue
-		}
-		frames = append(frames, *frame)
-		length += frame.Length(f.version)
-		lastFrame = frame
 	}
 	f.mutex.Unlock()
 	if lastFrame != nil {
