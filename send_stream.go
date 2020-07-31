@@ -22,7 +22,6 @@ type sendStreamI interface {
 	closeForShutdown(error)
 	handleMaxStreamDataFrame(*wire.MaxStreamDataFrame)
 	weight() int
-	SetWeight(int)
 }
 
 type sendStream struct {

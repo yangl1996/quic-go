@@ -96,6 +96,7 @@ type ReceiveStream interface {
 
 // A SendStream is a unidirectional Send Stream.
 type SendStream interface {
+	SetWeight(int)
 	// StreamID returns the stream ID.
 	StreamID() StreamID
 	// Write writes data to the stream.
