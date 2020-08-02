@@ -2,6 +2,7 @@ package quic
 
 import (
 	"sync"
+	"os"
 
 	"github.com/lucas-clemente/quic-go/internal/ackhandler"
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -26,7 +27,7 @@ type streamRef struct {
 	index int
 }
 
-type streamQueue []streamRef
+type streamQueue []*streamRef
 
 func (pq streamQueue) Len() int { return len(pq) }
 
@@ -36,7 +37,7 @@ func (pq streamQueue) Less(i, j int) bool {
 
 func (pq *streamQueue) Push(x interface{}) {
 	n := len(*pq)
-	item := x.(streamRef)
+	item := x.(*streamRef)
 	item.index = n
 	*pq = append(*pq, item)
 }
@@ -45,6 +46,7 @@ func (pq *streamQueue) Pop() interface{} {
 	old := *pq
 	n := len(old)
 	item := old[n - 1]
+	old[n - 1] = nil
 	item.index = -1
 	*pq = old[0 : n-1]
 	return item
@@ -125,11 +127,11 @@ func (f *framerI) AddActiveStream(id protocol.StreamID) {
 	str, err := f.streamGetter.GetOrOpenSendStream(id)
 	// The stream can be nil if it completed after it said it had data.
 	if str == nil || err != nil {
+		os.Exit(99)
 		return // TODO
-		panic("hey")	// the stream is gone
 	}
 	if _, ok := f.activeStreams[id]; !ok {
-		heap.Push(&f.streamQueue, streamRef{id, str.weight(), 0})
+		heap.Push(&f.streamQueue, &streamRef{id, str.weight(), 0})
 		f.activeStreams[id] = struct{}{}
 	}
 	f.mutex.Unlock()
@@ -145,7 +147,7 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 		if protocol.MinStreamFrameSize+length > maxLen {
 			break
 		}
-		ref := heap.Pop(&f.streamQueue).(streamRef)
+		ref := heap.Pop(&f.streamQueue).(*streamRef)
 		id := ref.id
 		// This should never return an error. Better check it anyway.
 		// The stream will only be in the streamQueue, if it enqueued itself there.
