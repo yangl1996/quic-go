@@ -66,16 +66,18 @@ type framerI struct {
 
 	activeStreams map[protocol.StreamID]struct{}
 	streamQueue  streamQueue
+	streamFifo []protocol.StreamID
+	strictPrio bool
 
 	controlFrameMutex sync.Mutex
 	controlFrames     []wire.Frame
 
-	rrWeight int
 }
 
 var _ framer = &framerI{}
 
 func newFramer(
+	strictPrio bool,
 	streamGetter streamGetter,
 	v protocol.VersionNumber,
 ) framer {
@@ -83,12 +85,18 @@ func newFramer(
 		streamGetter:  streamGetter,
 		activeStreams: make(map[protocol.StreamID]struct{}),
 		version:       v,
+		strictPrio: strictPrio,
 	}
 }
 
 func (f *framerI) HasData() bool {
 	f.mutex.Lock()
-	hasData := len(f.streamQueue) > 0
+	var hasData bool
+	if f.strictPrio {
+		hasData = len(f.streamQueue) > 0
+	} else {
+		hasData = len(f.streamFifo) > 0
+	}
 	f.mutex.Unlock()
 	if hasData {
 		return true
@@ -124,15 +132,22 @@ func (f *framerI) AppendControlFrames(frames []ackhandler.Frame, maxLen protocol
 
 func (f *framerI) AddActiveStream(id protocol.StreamID) {
 	f.mutex.Lock()
-	str, err := f.streamGetter.GetOrOpenSendStream(id)
-	// The stream can be nil if it completed after it said it had data.
-	if str == nil || err != nil {
-		os.Exit(99)
-		return // TODO
-	}
-	if _, ok := f.activeStreams[id]; !ok {
-		heap.Push(&f.streamQueue, &streamRef{id, str.weight(), 0})
-		f.activeStreams[id] = struct{}{}
+	if f.strictPrio {
+		str, err := f.streamGetter.GetOrOpenSendStream(id)
+		// The stream can be nil if it completed after it said it had data.
+		if str == nil || err != nil {
+			os.Exit(99)
+			return // TODO
+		}
+		if _, ok := f.activeStreams[id]; !ok {
+			heap.Push(&f.streamQueue, &streamRef{id, str.weight(), 0})
+			f.activeStreams[id] = struct{}{}
+		}
+	} else {
+		if _, ok := f.activeStreams[id]; !ok {
+			f.streamFifo = append(f.streamFifo, id)
+			f.activeStreams[id] = struct{}{}
+		}
 	}
 	f.mutex.Unlock()
 }
@@ -142,13 +157,25 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 	var lastFrame *ackhandler.Frame
 	f.mutex.Lock()
 	// pop STREAM frames, until less than MinStreamFrameSize bytes are left in the packet
-	numActiveStreams := len(f.streamQueue)
+	var numActiveStreams int
+	if f.strictPrio {
+		numActiveStreams = len(f.streamQueue)
+	} else {
+		numActiveStreams = len(f.streamFifo)
+	}
 	for i := 0; i < numActiveStreams; i++ {
 		if protocol.MinStreamFrameSize+length > maxLen {
 			break
 		}
-		ref := heap.Pop(&f.streamQueue).(*streamRef)
-		id := ref.id
+		var id protocol.StreamID
+		var ref *streamRef
+		if f.strictPrio {
+			ref = heap.Pop(&f.streamQueue).(*streamRef)
+			id = ref.id
+		} else {
+			id = f.streamFifo[0]
+			f.streamFifo = f.streamFifo[1:]
+		}
 		// This should never return an error. Better check it anyway.
 		// The stream will only be in the streamQueue, if it enqueued itself there.
 		str, err := f.streamGetter.GetOrOpenSendStream(id)
@@ -164,7 +191,11 @@ func (f *framerI) AppendStreamFrames(frames []ackhandler.Frame, maxLen protocol.
 		remainingLen += utils.VarIntLen(uint64(remainingLen))
 		frame, hasMoreData := str.popStreamFrame(remainingLen)
 		if hasMoreData { // put the stream back in the queue (at the end)
-			heap.Push(&f.streamQueue, ref)
+			if f.strictPrio {
+				heap.Push(&f.streamQueue, ref)
+			} else {
+				f.streamFifo = append(f.streamFifo, id)
+			}
 		} else { // no more data to send. Stream is not active any more
 			delete(f.activeStreams, id)
 		}

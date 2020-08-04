@@ -259,6 +259,7 @@ type Config struct {
 	// Warning: Experimental. This API should not be considered stable and will change soon.
 	QuicTracer quictrace.Tracer
 	Tracer     logging.Tracer
+	StrictPrioritization bool
 }
 
 // A Listener for incoming QUIC connections

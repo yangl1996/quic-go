@@ -266,7 +266,7 @@ var newSession = func(
 		runner.ReplaceWithClosed,
 		s.queueControlFrame,
 	)
-	s.preSetup()
+	s.preSetup(conf.StrictPrioritization)
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		1,	// TODO: we are not configuring the number of connections if it is incoming
 		0,
@@ -390,7 +390,7 @@ var newClientSession = func(
 		runner.ReplaceWithClosed,
 		s.queueControlFrame,
 	)
-	s.preSetup()
+	s.preSetup(conf.StrictPrioritization)
 	s.sentPacketHandler, s.receivedPacketHandler = ackhandler.NewAckHandler(
 		nConn,
 		initialPacketNumber,
@@ -470,7 +470,7 @@ var newClientSession = func(
 	return s
 }
 
-func (s *session) preSetup() {
+func (s *session) preSetup(strictPrio bool) {
 	s.sendQueue = newSendQueue(s.conn)
 	s.retransmissionQueue = newRetransmissionQueue(s.version)
 	s.frameParser = wire.NewFrameParser(s.version)
@@ -491,7 +491,7 @@ func (s *session) preSetup() {
 		s.perspective,
 		s.version,
 	)
-	s.framer = newFramer(s.streamsMap, s.version)
+	s.framer = newFramer(strictPrio, s.streamsMap, s.version)
 	s.receivedPackets = make(chan *receivedPacket, protocol.MaxSessionUnprocessedPackets)
 	s.closeChan = make(chan closeError, 1)
 	s.sendingScheduled = make(chan struct{}, 1)
