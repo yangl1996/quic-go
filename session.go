@@ -470,6 +470,10 @@ var newClientSession = func(
 	return s
 }
 
+func (s *session) SetNumConnections(n int) {
+	s.sentPacketHandler.SetNumConnections(n)
+}
+
 func (s *session) preSetup(strictPrio bool) {
 	s.sendQueue = newSendQueue(s.conn)
 	s.retransmissionQueue = newRetransmissionQueue(s.version)

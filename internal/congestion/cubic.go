@@ -2,6 +2,7 @@ package congestion
 
 import (
 	"math"
+	"sync/atomic"
 	"time"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
@@ -36,7 +37,7 @@ type Cubic struct {
 	clock Clock
 
 	// Number of connections to simulate.
-	numConnections int
+	numConnections *int64
 
 	// Time when this cycle started, after last loss event.
 	epoch time.Time
@@ -64,9 +65,10 @@ type Cubic struct {
 
 // NewCubic returns a new Cubic instance
 func NewCubic(clock Clock, nConn int) *Cubic {
+	nc := int64(nConn)
 	c := &Cubic{
 		clock:          clock,
-		numConnections: nConn,
+		numConnections: &nc,
 	}
 	c.Reset()
 	return c
@@ -87,8 +89,9 @@ func (c *Cubic) alpha() float32 {
 	// TCPFriendly alpha is described in Section 3.3 of the CUBIC paper. Note that
 	// beta here is a cwnd multiplier, and is equal to 1-beta from the paper.
 	// We derive the equivalent alpha for an N-connection emulation as:
+	nc := atomic.LoadInt64(c.numConnections)
 	b := c.beta()
-	return 3 * float32(c.numConnections) * float32(c.numConnections) * (1 - b) / (1 + b)
+	return 3 * float32(nc) * float32(nc) * (1 - b) / (1 + b)
 }
 
 func (c *Cubic) beta() float32 {
@@ -96,7 +99,8 @@ func (c *Cubic) beta() float32 {
 	// emulation, which emulates the effective backoff of an ensemble of N
 	// TCP-Reno connections on a single loss event. The effective multiplier is
 	// computed as:
-	return (float32(c.numConnections) - 1 + beta) / float32(c.numConnections)
+	nc := atomic.LoadInt64(c.numConnections)
+	return (float32(nc) - 1 + beta) / float32(nc)
 }
 
 func (c *Cubic) betaLastMax() float32 {
@@ -104,7 +108,8 @@ func (c *Cubic) betaLastMax() float32 {
 	// N-connection emulation, which emulates the additional backoff of
 	// an ensemble of N TCP-Reno connections on a single loss event. The
 	// effective multiplier is computed as:
-	return (float32(c.numConnections) - 1 + betaLastMax) / float32(c.numConnections)
+	nc := atomic.LoadInt64(c.numConnections)
+	return (float32(nc) - 1 + betaLastMax) / float32(nc)
 }
 
 // OnApplicationLimited is called on ack arrival when sender is unable to use
@@ -206,5 +211,5 @@ func (c *Cubic) CongestionWindowAfterAck(
 
 // SetNumConnections sets the number of emulated connections
 func (c *Cubic) SetNumConnections(n int) {
-	c.numConnections = n
+	atomic.StoreInt64(c.numConnections, int64(n))
 }
