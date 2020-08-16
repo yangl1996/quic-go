@@ -96,6 +96,10 @@ func newCubicSender(clock Clock, nConn int, rttStats *utils.RTTStats, reno bool,
 	return c
 }
 
+func (c *cubicSender) SetNumConnections(n int) {
+	c.cubic.SetNumConnections(n)
+}
+
 // TimeUntilSend returns when the next packet should be sent.
 func (c *cubicSender) TimeUntilSend(_ protocol.ByteCount) time.Time {
 	return c.pacer.TimeUntilSend()

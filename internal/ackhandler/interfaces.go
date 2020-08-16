@@ -29,6 +29,7 @@ type SentPacketHandler interface {
 	DropPackets(protocol.EncryptionLevel)
 	ResetForRetry() error
 	SetHandshakeConfirmed()
+	SetNumConnections(n int)
 
 	// The SendMode determines if and what kind of packets can be sent.
 	SendMode() SendMode

@@ -123,6 +123,10 @@ func newSentPacketHandler(
 	}
 }
 
+func (h *sentPacketHandler) SetNumConnections(n int) {
+	h.congestion.SetNumConnections(n)
+}
+
 func (h *sentPacketHandler) DropPackets(encLevel protocol.EncryptionLevel) {
 	if h.perspective == protocol.PerspectiveClient && encLevel == protocol.EncryptionInitial {
 		// This function is called when the crypto setup seals a Handshake packet.
