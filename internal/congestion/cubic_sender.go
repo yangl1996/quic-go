@@ -77,10 +77,14 @@ func newCubicSender(clock Clock, nConn int, rttStats *utils.RTTStats, reno bool,
 		largestSentPacketNumber:    protocol.InvalidPacketNumber,
 		largestAckedPacketNumber:   protocol.InvalidPacketNumber,
 		largestSentAtLastCutback:   protocol.InvalidPacketNumber,
+		// this is only used upon migration, so we don't need to change it here
 		initialCongestionWindow:    initialCongestionWindow * protocol.ByteCount(nConn),
+		// ditto
 		initialMaxCongestionWindow: initialMaxCongestionWindow * protocol.ByteCount(nConn),
+		// this is updated on-the-fly, no need to initialize it properly as well
 		congestionWindow:           initialCongestionWindow * protocol.ByteCount(nConn),
 		minCongestionWindow:        minCongestionWindow * protocol.ByteCount(nConn),
+		// updated on-the-fly, no need to initialize it properly
 		slowStartThreshold:         initialMaxCongestionWindow * protocol.ByteCount(nConn),
 		maxCongestionWindow:        initialMaxCongestionWindow * protocol.ByteCount(nConn),
 		cubic:                      NewCubic(clock, nConn),
