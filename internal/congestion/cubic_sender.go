@@ -2,6 +2,7 @@ package congestion
 
 import (
 	"time"
+	"sync/atomic"
 
 	"github.com/lucas-clemente/quic-go/internal/protocol"
 	"github.com/lucas-clemente/quic-go/internal/utils"
@@ -83,10 +84,10 @@ func newCubicSender(clock Clock, nConn int, rttStats *utils.RTTStats, reno bool,
 		initialMaxCongestionWindow: initialMaxCongestionWindow * protocol.ByteCount(nConn),
 		// this is updated on-the-fly, no need to initialize it properly as well
 		congestionWindow:           initialCongestionWindow * protocol.ByteCount(nConn),
-		minCongestionWindow:        minCongestionWindow * protocol.ByteCount(nConn),
+		minCongestionWindow:        minCongestionWindow,
 		// updated on-the-fly, no need to initialize it properly
 		slowStartThreshold:         initialMaxCongestionWindow * protocol.ByteCount(nConn),
-		maxCongestionWindow:        initialMaxCongestionWindow * protocol.ByteCount(nConn),
+		maxCongestionWindow:        initialMaxCongestionWindow,
 		cubic:                      NewCubic(clock, nConn),
 		clock:                      clock,
 		reno:                       reno,
@@ -98,6 +99,16 @@ func newCubicSender(clock Clock, nConn int, rttStats *utils.RTTStats, reno bool,
 		c.tracer.UpdatedCongestionState(logging.CongestionStateSlowStart)
 	}
 	return c
+}
+
+func (c *cubicSender) GetMinCongestionWindow() protocol.ByteCount {
+	nc := atomic.LoadInt64(c.cubic.numConnections)
+	return c.minCongestionWindow * protocol.ByteCount(nc)
+}
+
+func (c *cubicSender) GetMaxCongestionWindow() protocol.ByteCount {
+	nc := atomic.LoadInt64(c.cubic.numConnections)
+	return c.maxCongestionWindow * protocol.ByteCount(nc)
 }
 
 func (c *cubicSender) SetNumConnections(n int) {
@@ -186,8 +197,9 @@ func (c *cubicSender) OnPacketLost(
 	} else {
 		c.congestionWindow = c.cubic.CongestionWindowAfterPacketLoss(c.congestionWindow)
 	}
-	if c.congestionWindow < c.minCongestionWindow {
-		c.congestionWindow = c.minCongestionWindow
+	mc := c.GetMinCongestionWindow()
+	if c.congestionWindow < mc {
+		c.congestionWindow = mc
 	}
 	c.slowStartThreshold = c.congestionWindow
 	c.largestSentAtLastCutback = c.largestSentPacketNumber
@@ -211,7 +223,7 @@ func (c *cubicSender) maybeIncreaseCwnd(
 		c.maybeTraceStateChange(logging.CongestionStateApplicationLimited)
 		return
 	}
-	if c.congestionWindow >= c.maxCongestionWindow {
+	if c.congestionWindow >= c.GetMaxCongestionWindow() {
 		return
 	}
 	if c.InSlowStart() {
@@ -230,7 +242,7 @@ func (c *cubicSender) maybeIncreaseCwnd(
 			c.numAckedPackets = 0
 		}
 	} else {
-		c.congestionWindow = utils.MinByteCount(c.maxCongestionWindow, c.cubic.CongestionWindowAfterAck(ackedBytes, c.congestionWindow, c.rttStats.MinRTT(), eventTime))
+		c.congestionWindow = utils.MinByteCount(c.GetMaxCongestionWindow(), c.cubic.CongestionWindowAfterAck(ackedBytes, c.congestionWindow, c.rttStats.MinRTT(), eventTime))
 	}
 }
 
@@ -263,7 +275,7 @@ func (c *cubicSender) OnRetransmissionTimeout(packetsRetransmitted bool) {
 	c.hybridSlowStart.Restart()
 	c.cubic.Reset()
 	c.slowStartThreshold = c.congestionWindow / 2
-	c.congestionWindow = c.minCongestionWindow
+	c.congestionWindow = c.GetMinCongestionWindow()
 }
 
 // OnConnectionMigration is called when the connection is migrated (?)
