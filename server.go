@@ -74,7 +74,7 @@ type baseServer struct {
 
 	// set as a member, so they can be set in the tests
 	newSession func(
-		connection,
+		sendConn,
 		sessionRunner,
 		protocol.ConnectionID, /* original dest connection ID */
 		*protocol.ConnectionID, /* retry src connection ID */
@@ -170,6 +170,9 @@ func ListenEarly(conn net.PacketConn, tlsConf *tls.Config, config *Config) (Earl
 func listen(conn net.PacketConn, tlsConf *tls.Config, config *Config, acceptEarly bool) (*baseServer, error) {
 	if tlsConf == nil {
 		return nil, errors.New("quic: tls.Config not set")
+	}
+	if err := validateConfig(config); err != nil {
+		return nil, err
 	}
 	config = populateServerConfig(config)
 	for _, v := range config.Versions {
@@ -471,7 +474,7 @@ func (s *baseServer) createNewSession(
 			tracer = s.config.Tracer.TracerForConnection(protocol.PerspectiveServer, connID)
 		}
 		sess = s.newSession(
-			&conn{pconn: s.conn, currentAddr: remoteAddr},
+			newSendConn(s.conn, remoteAddr),
 			s.sessionHandler,
 			origDestConnID,
 			retrySrcConnID,

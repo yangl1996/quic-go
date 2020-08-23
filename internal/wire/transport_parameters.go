@@ -297,10 +297,10 @@ func (p *TransportParameters) readNumericTransportParameter(
 		}
 		p.AckDelayExponent = uint8(val)
 	case maxAckDelayParameterID:
-		maxAckDelay := time.Duration(val) * time.Millisecond
-		if maxAckDelay >= protocol.MaxMaxAckDelay {
-			return fmt.Errorf("invalid value for max_ack_delay: %dms (maximum %dms)", maxAckDelay/time.Millisecond, (protocol.MaxMaxAckDelay-time.Millisecond)/time.Millisecond)
+		if val > uint64(protocol.MaxMaxAckDelay/time.Millisecond) {
+			return fmt.Errorf("invalid value for max_ack_delay: %dms (maximum %dms)", val, protocol.MaxMaxAckDelay/time.Millisecond)
 		}
+		maxAckDelay := time.Duration(val) * time.Millisecond
 		if maxAckDelay < 0 {
 			maxAckDelay = utils.InfDuration
 		}
@@ -358,9 +358,11 @@ func (p *TransportParameters) Marshal(pers protocol.Perspective) []byte {
 	}
 	if pers == protocol.PerspectiveServer {
 		// stateless_reset_token
-		utils.WriteVarInt(b, uint64(statelessResetTokenParameterID))
-		utils.WriteVarInt(b, 16)
-		b.Write(p.StatelessResetToken[:])
+		if p.StatelessResetToken != nil {
+			utils.WriteVarInt(b, uint64(statelessResetTokenParameterID))
+			utils.WriteVarInt(b, 16)
+			b.Write(p.StatelessResetToken[:])
+		}
 		// original_destination_connection_id
 		utils.WriteVarInt(b, uint64(originalDestinationConnectionIDParameterID))
 		utils.WriteVarInt(b, uint64(p.OriginalDestinationConnectionID.Len()))

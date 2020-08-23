@@ -17,7 +17,7 @@ import (
 type client struct {
 	mutex sync.Mutex
 
-	conn connection
+	conn sendConn
 	// If the client is created with DialAddr, we create a packet conn.
 	// If it is started with Dial, we take a packet conn as a parameter.
 	createdPacketConn bool
@@ -172,6 +172,9 @@ func dialContext(
 	if tlsConf == nil {
 		return nil, errors.New("quic: tls.Config not set")
 	}
+	if err := validateConfig(config); err != nil {
+		return nil, err
+	}
 	config = populateClientConfig(config, createdPacketConn)
 	packetHandlers, err := getMultiplexer().AddConn(pconn, config.ConnectionIDLength, config.StatelessResetKey, config.Tracer)
 	if err != nil {
@@ -237,7 +240,7 @@ func newClient(
 	c := &client{
 		srcConnID:         srcConnID,
 		destConnID:        destConnID,
-		conn:              &conn{pconn: pconn, currentAddr: remoteAddr},
+		conn:              newSendConn(pconn, remoteAddr),
 		createdPacketConn: createdPacketConn,
 		use0RTT:           use0RTT,
 		tlsConf:           tlsConf,
